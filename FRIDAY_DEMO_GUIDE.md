@@ -17,13 +17,15 @@ python s2s_pipeline.py --mode socket --recv_host 0.0.0.0 --send_host 0.0.0.0 --d
 
 ### Step 2: Test Connection from Laptop
 ```bash
-python test_remote_connection.py <DESKTOP_PC_IP>
-# Should show: "🎉 All connections successful! 📡 Average network latency: ~5-15ms"
+python test_remote_connection.py 100.95.246.30
+# Should show: "🎉 All connections successful! 📡 Average network latency: ~4.9ms"
+# Desktop PC Tailscale IP: 100.95.246.30
 ```
 
 ### Step 3: Connect Misty Robot
 ```bash
-python misty_integration.py <MISTY_IP> <DESKTOP_PC_IP>
+python misty_integration.py 192.168.0.137 100.95.246.30
+# Misty IP: 192.168.0.137 | Desktop PC Tailscale IP: 100.95.246.30
 ```
 
 ## 📋 Pre-Demo Checklist
@@ -111,6 +113,51 @@ Total: ~1701ms (Grade A+ performance)
 2. **Models downloading**: First run in new environment rebuilds cache
 3. **Robot not responding**: Verify Misty IP and SDK installation
 4. **High latency**: Check WiFi network, use ethernet if possible
+
+### 🎤 **CRITICAL: Misty Audio Issues**
+**Problem**: Misty SDK commands work, but audio input fails (university networks)
+
+**Symptoms**:
+- Robot expressions and movements work ✅
+- Speech input from Misty microphone fails ❌
+- University firewall blocks audio streaming ports
+
+**Solutions (Test Before Demo)**:
+1. **Audio Bypass**: Use laptop microphone instead of Misty's
+   ```bash
+   # Modified integration: laptop audio → pipeline → misty expressions
+   python laptop_audio_misty_demo.py 192.168.0.137 100.95.246.30
+   # Misty: 192.168.0.137 | Desktop PC: 100.95.246.30 (Tailscale)
+   ```
+
+2. **Mobile Hotspot**: Bypass university network entirely
+   - Connect laptop + Misty to phone hotspot
+   - Use Tailscale through mobile data
+   - Test: `python test_remote_connection.py 100.95.246.30`
+
+3. **Text Input Demo**: Keyboard input for demo safety
+   ```bash
+   python text_input_demo.py 192.168.0.137 100.95.246.30
+   # Same IPs, but keyboard input instead of speech
+   ```
+
+4. **Audio Port Testing**:
+   ```bash
+   # Test Misty's audio capabilities first
+   python -c "
+   from mistyPy.Robot import Robot
+   robot = Robot('192.168.0.137')
+   robot.start_recording_audio('test.wav')
+   # Check if recording works on network
+   "
+   ```
+
+**Key IP Addresses**:
+- **Misty Robot**: `192.168.0.137`
+- **Desktop PC (Tailscale)**: `100.95.246.30`
+- **Laptop-to-PC Latency**: ~4.9ms (home) | expect 10-50ms (demo site)
+
+**Demo Strategy**: Always have text-input backup ready!
 
 ### Fallback Options
 1. **Local Mode**: Run everything on laptop if network issues
