@@ -35,6 +35,18 @@ python misty_integration.py <MISTY_IP> <DESKTOP_PC_IP>
 - [ ] Firewall allows ports 12345, 12346 (`sudo ufw allow 12345 && sudo ufw allow 12346`)
 - [ ] Pipeline server shows "Server listening on 0.0.0.0:12345"
 
+### Laptop Setup (Demo Control)
+- [ ] **Git Repository**: Clone your project: `git clone https://github.com/shaunaheron2/misty-project.git`
+- [ ] **Python 3.12**: Install with `pyenv install 3.12` or package manager
+- [ ] **Dependencies**: Only need minimal packages for network testing and Misty control:
+  ```bash
+  pip install requests socket mistyPy
+  # Or just use built-in socket module for connection testing
+  ```
+- [ ] **VSCode (Recommended)**: Install with Python extension for easy development
+- [ ] **Network Tools**: Ensure laptop can reach desktop PC IP
+- [ ] **Misty SDK**: `pip install git+https://github.com/MistyCommunity/Python-SDK.git`
+
 ### Network Configuration
 - [ ] Desktop PC and laptop on same WiFi network
 - [ ] Desktop PC IP address known (`ip addr show | grep inet`)
@@ -116,6 +128,34 @@ pkill -f s2s_pipeline
 # Quick restart
 ./laptop_demo.sh
 ```
+
+## 💻 VSCode Setup (Recommended)
+
+### Why VSCode for This Project:
+- **Remote Development**: SSH into desktop PC to edit code while pipeline runs
+- **Integrated Terminal**: Run commands and monitor logs in same window
+- **Python Support**: Excellent debugging and intellisense for robotics code
+- **Git Integration**: Easy commit/push workflow for research iterations
+
+### Essential Extensions:
+```bash
+# Install VSCode extensions
+code --install-extension ms-python.python
+code --install-extension ms-vscode-remote.remote-ssh
+code --install-extension ms-vscode.remote-explorer
+```
+
+### Project Workspace Setup:
+1. **Open Project**: `code /home/sheron/Documents/robots/speech-to-speech`
+2. **Python Interpreter**: Select Python 3.12 (`.venv-312/bin/python`)
+3. **Terminal Setup**: Multiple terminals for pipeline, monitoring, and git
+4. **Remote SSH**: Connect to desktop PC if running laptop-only demo
+
+### Useful VSCode Features:
+- **Split Terminal**: Monitor pipeline logs + run commands simultaneously
+- **Git Timeline**: See all your research commits and changes
+- **Python Debugging**: Set breakpoints in `misty_integration.py` for troubleshooting
+- **Live Share**: Share screen with professor during demo if needed
 
 ## 📊 Performance Dashboard
 
