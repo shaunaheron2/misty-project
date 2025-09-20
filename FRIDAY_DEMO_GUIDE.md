@@ -11,6 +11,13 @@
 ### Step 1: Start Pipeline Server on Desktop PC
 ```bash
 cd /home/sheron/Documents/robots/speech-to-speech
+./start_pipeline_server.sh
+# Simple launcher script - checks environment, GPU, and starts server
+# Wait for: "Receiver waiting to be connected..."
+```
+
+**Alternative (manual command):**
+```bash
 source .venv-312/bin/activate
 python s2s_pipeline.py --mode socket --recv_host 0.0.0.0 --send_host 0.0.0.0 --device cuda --stt faster-whisper --llm transformers --tts parler --lm_model_name microsoft/Phi-3-mini-4k-instruct --log_level info
 ```
