@@ -1,0 +1,58 @@
+{
+  "laptop_config": {
+    "performance_mode": "laptop_optimized",
+    "models": {
+      "lm_model": "HuggingFaceTB/SmolLM-360M-Instruct",
+      "lm_alternative": "microsoft/DialoGPT-medium",
+      "stt_model": "openai/whisper-tiny.en",
+      "stt_alternative": "faster-whisper",
+      "tts_model": "parler-mini",
+      "tts_alternative": "openai-api"
+    },
+    "pipeline": {
+      "device": "cuda",
+      "compile_modes": {
+        "stt": null,
+        "tts": null
+      },
+      "batch_size": 1,
+      "max_length": 512
+    },
+    "network": {
+      "mode": "local",
+      "fallback_mode": "socket",
+      "ports": {
+        "audio_in": 12345,
+        "audio_out": 12346,
+        "misty_control": 8080
+      }
+    },
+    "demo": {
+      "conversation_timeout": 30,
+      "max_conversations": 20,
+      "auto_hint_delay": 10,
+      "expression_delay": 0.5
+    },
+    "performance_targets": {
+      "total_latency_ms": 3000,
+      "acceptable_latency_ms": 4000,
+      "stt_target_ms": 500,
+      "llm_target_ms": 1500,
+      "tts_target_ms": 800,
+      "robot_target_ms": 500
+    }
+  },
+  "api_fallback": {
+    "openai": {
+      "stt_model": "whisper-1",
+      "llm_model": "gpt-4o-mini",
+      "tts_model": "tts-1",
+      "tts_voice": "nova"
+    },
+    "deepgram": {
+      "model": "nova-2",
+      "language": "en-US",
+      "smart_format": true
+    }
+  }
+}
