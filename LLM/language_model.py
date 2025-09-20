@@ -6,6 +6,7 @@ from transformers import (
     TextIteratorStreamer,
 )
 import torch
+import json
 
 from LLM.chat import Chat
 from baseHandler import BaseHandler
@@ -81,6 +82,25 @@ class LanguageModelHandler(BaseHandler):
 
         self.warmup()
 
+    def parse_json_response(self, text):
+        """
+        Parse JSON response from the model and extract message and expression.
+        Returns (message_text, expression) or (original_text, None) if not JSON.
+        """
+        try:
+            # Try to find JSON in the response
+            text = text.strip()
+            if text.startswith('{') and text.endswith('}'):
+                parsed = json.loads(text)
+                if 'msg' in parsed:
+                    expression = parsed.get('expression', None)
+                    logger.info(f"Parsed JSON response - Expression: {expression}")
+                    return parsed['msg'], expression
+            return text, None
+        except json.JSONDecodeError:
+            logger.debug("Response is not valid JSON, using as plain text")
+            return text, None
+
     def warmup(self):
         logger.info(f"Warming up {self.__class__.__name__}")
 
@@ -141,12 +161,26 @@ class LanguageModelHandler(BaseHandler):
             for new_text in self.streamer:
                 generated_text += new_text
                 printable_text += new_text
-                sentences = sent_tokenize(printable_text)
-                if len(sentences) > 1:
-                    yield (sentences[0], language_code)
-                    printable_text = new_text
+
+                # For JSON responses, wait for complete response before parsing
+                # For regular text, use sentence-based streaming
+                if not (printable_text.strip().startswith('{') and not printable_text.strip().endswith('}')):
+                    sentences = sent_tokenize(printable_text)
+                    if len(sentences) > 1:
+                        # Check if first sentence might be JSON
+                        first_sentence = sentences[0]
+                        parsed_text, expression = self.parse_json_response(first_sentence)
+                        if expression:
+                            logger.info(f"Robot expression (streaming): {expression}")
+                        yield (parsed_text, language_code)
+                        printable_text = new_text
 
         self.chat.append({"role": "assistant", "content": generated_text})
 
-        # don't forget last sentence
-        yield (printable_text, language_code)
+        # Parse JSON response if applicable and extract message for TTS
+        parsed_text, expression = self.parse_json_response(printable_text)
+        if expression:
+            logger.info(f"Robot expression: {expression}")
+
+        # don't forget last sentence - yield the parsed message text for TTS
+        yield (parsed_text, language_code)

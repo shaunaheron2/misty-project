@@ -1,3 +1,88 @@
-__pycache__
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+.venv-*/
+venv/
+env/
+ENV/
+
+# PyCharm
+.idea/
+
+# VSCode
+.vscode/
+
+# Jupyter
+.ipynb_checkpoints
+
+# Model caches and downloads
+~/.cache/huggingface/
+models/
+model_cache/
+*.pt
+*.pth
+*.safetensors
+
+# Audio files
+*.wav
+*.mp3
+*.flac
+/tmp/
+temp_audio/
+
+# Experiment results
+*_report_*.json
+latency_test_results_*.json
+misty_experiment_report_*.json
+
+# Temporary files
+temp.txt
+*.tmp
+*.log
+*.out
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+
+# Python version management
+.python-version
+
+# Compiled models and artifacts
+=*
+*.compiled
+
+# HuggingFace token
+.huggingface_token
+
+# CUDA cache
+.nv/
+
+# Original basic ignores
 tmp
 cache

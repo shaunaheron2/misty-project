@@ -419,6 +419,16 @@ def get_tts_handler(module_kwargs, stop_event, lm_response_queue, send_audio_chu
         raise ValueError("The TTS should be either parler, melo, chatTTS or facebookMMS")
 
 
+def load_who_dunnit_prompt():
+    """Load the who-dunnit instruction prompt from the markdown file."""
+    try:
+        prompt_file = CURRENT_DIR / "who-dunnit-instruction.md"
+        with open(prompt_file, 'r', encoding='utf-8') as f:
+            return f.read()
+    except FileNotFoundError:
+        logger.warning("who-dunnit-instruction.md not found, using default prompt")
+        return None
+
 def main():
     (
         module_kwargs,
@@ -438,6 +448,13 @@ def main():
     ) = parse_arguments()
 
     setup_logger(module_kwargs.log_level)
+
+    # Load who-dunnit prompt if available
+    who_dunnit_prompt = load_who_dunnit_prompt()
+    if who_dunnit_prompt and not hasattr(language_model_handler_kwargs, 'init_chat_prompt_set'):
+        # Only override if not explicitly set via CLI
+        language_model_handler_kwargs.init_chat_prompt = who_dunnit_prompt
+        logger.info("Using who-dunnit instruction prompt for robot personality")
 
     prepare_all_args(
         module_kwargs,

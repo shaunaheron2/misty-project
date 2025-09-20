@@ -6,8 +6,15 @@ import torch
 from rich.console import Console
 
 from utils.utils import int2float
-from df.enhance import enhance, init_df
 import logging
+
+# Optional import for audio enhancement
+try:
+    from df.enhance import enhance, init_df
+    DEEPFILTER_AVAILABLE = True
+except ImportError:
+    DEEPFILTER_AVAILABLE = False
+    logging.getLogger(__name__).warning("deepfilternet not available - audio enhancement disabled")
 
 logger = logging.getLogger(__name__)
 
@@ -44,9 +51,13 @@ class VADHandler(BaseHandler):
             min_silence_duration_ms=min_silence_ms,
             speech_pad_ms=speech_pad_ms,
         )
-        self.audio_enhancement = audio_enhancement
-        if audio_enhancement:
-            self.enhanced_model, self.df_state, _ = init_df()
+        self.audio_enhancement = audio_enhancement and DEEPFILTER_AVAILABLE
+        if self.audio_enhancement:
+            if not DEEPFILTER_AVAILABLE:
+                logger.warning("Audio enhancement requested but deepfilternet not available")
+                self.audio_enhancement = False
+            else:
+                self.enhanced_model, self.df_state, _ = init_df()
 
     def process(self, audio_chunk):
         audio_int16 = np.frombuffer(audio_chunk, dtype=np.int16)

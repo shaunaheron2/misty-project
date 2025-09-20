@@ -3,6 +3,14 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Import latency monitor if available
+try:
+    from latency_monitor import monitor
+    LATENCY_MONITORING = True
+except ImportError:
+    LATENCY_MONITORING = False
+    monitor = None
+
 
 class BaseHandler:
     """
@@ -35,7 +43,14 @@ class BaseHandler:
                 break
             start_time = perf_counter()
             for output in self.process(input):
-                self._times.append(perf_counter() - start_time)
+                duration_s = perf_counter() - start_time
+                self._times.append(duration_s)
+
+                # Log to latency monitor if available
+                if LATENCY_MONITORING and monitor:
+                    component_name = self.__class__.__name__.replace('Handler', '').upper()
+                    monitor.log_component_time(component_name, duration_s * 1000)
+
                 if self.last_time > self.min_time_to_debug:
                     logger.debug(f"{self.__class__.__name__}: {self.last_time: .3f} s")
                 self.queue_out.put(output)
