@@ -42,7 +42,7 @@ ROBOT_EXPRESSIONS = {
     "head-up-down-nod": {"led_color": (0, 199, 252), "head_sequence": [(-15, 0, 0), (5, 0, 0), (-15, 0, 0), (5, 0, 0), (-5, 0, 0)]},
 }
 
-class MistyWhoIsDunnitRobot:
+class MistyWhoDunnitRobot:
     """
     Misty robot integration for who-dunnit mystery solving experiment.
 
@@ -256,21 +256,21 @@ class MistyWhoIsDunnitRobot:
             with open(f"misty_experiment_report_{timestamp}.json", 'w') as f:
                 json.dump(report, f, indent=2)
 
-            logger.info(f"📊 Experiment complete. Report saved to misty_experiment_report_{timestamp}.json")
+            logger.info(f" Experiment complete. Report saved to misty_experiment_report_{timestamp}.json")
 
 def main():
     """Test Misty integration."""
     import sys
 
     if len(sys.argv) != 3:
-        print("Usage: python misty_integration.py <misty_ip> <pipeline_server_ip>")
+        print("Usage: python misty_integration.py <misty_ip> <pipeline_server_ip>")2
         print("Example: python misty_integration.py 192.168.1.100 192.168.1.50")
         sys.exit(1)
 
     misty_ip = sys.argv[1]
     pipeline_server_ip = sys.argv[2]
 
-    robot = MistyWhoIsDunnitRobot(misty_ip, pipeline_server_ip)
+    robot = MistyWhoDunnitRobot(misty_ip, pipeline_server_ip)
     robot.run_experiment_loop()
 
 if __name__ == "__main__":
