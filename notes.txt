@@ -1,0 +1,12 @@
+ssh 100.95.246.30
+screen -S speech-server
+./start_pipeline_server.sh
+python s2s_pipeline.py --recv_host 0.0.0.0 --send_host 0.0.0.0
+
+python misty_complete_integration.py MISTYIP 100.95.246.30
+
+latency home 5-7 ms audio ports
+latency university audio input 46.9 ms
+latency university audio output 17.9 ms
+~ latency 32.4 ms
+
