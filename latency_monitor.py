@@ -44,7 +44,7 @@ class LatencyMonitor:
         """Mark the start of a new conversation turn."""
         self.conversation_start = time.time()
         self.current_turn = {}
-        logger.info("🎯 Starting conversation turn")
+        logger.info("Starting conversation turn")
 
     def log_component_time(self, component: str, duration_ms: float, **kwargs):
         """Log timing for a specific pipeline component."""
@@ -62,7 +62,7 @@ class LatencyMonitor:
         self.measurements[component].append(measurement)
         self.current_turn[component] = duration_ms
 
-        logger.info(f"⏱️  {component}: {duration_ms:.1f}ms")
+        logger.info(f" {component}: {duration_ms:.1f}ms")
 
     def end_conversation_turn(self) -> Dict[str, float]:
         """Calculate and log end-to-end conversation metrics."""
@@ -95,7 +95,7 @@ class LatencyMonitor:
         }
 
         # Log results
-        logger.info("🏁 Conversation turn complete:")
+        logger.info("Conversation turn complete:")
         logger.info(f"   Total: {total_time:.1f}ms")
         logger.info(f"   VAD: {vad_time:.1f}ms | STT: {stt_time:.1f}ms | LLM: {llm_time:.1f}ms | TTS: {tts_time:.1f}ms")
         if robot_time > 0:
@@ -166,7 +166,7 @@ class LatencyMonitor:
     def log_robot_action(self, action: str, duration_ms: float):
         """Log robot-specific actions (expressions, movements)."""
         self.log_component_time('ROBOT', duration_ms, action=action)
-        logger.info(f"🤖 Robot action '{action}': {duration_ms:.1f}ms")
+        logger.info(f"Robot action '{action}': {duration_ms:.1f}ms")
 
     def export_data(self, filename: str):
         """Export all measurements to JSON for analysis."""
@@ -181,7 +181,7 @@ class LatencyMonitor:
         with open(filename, 'w') as f:
             json.dump(data, f, indent=2)
 
-        logger.info(f"📊 Exported latency data to {filename}")
+        logger.info(f"Exported latency data to {filename}")
 
 # Global monitor instance
 monitor = LatencyMonitor()

@@ -25,7 +25,7 @@ try:
     MISTY_AVAILABLE = True
 except ImportError:
     MISTY_AVAILABLE = False
-    print("⚠️  Misty SDK not available. Install with: pip install git+https://github.com/MistyCommunity/Python-SDK.git")
+    print("  Misty SDK not available. Install with: pip install git+https://github.com/MistyCommunity/Python-SDK.git")
 
 from latency_monitor import monitor
 
@@ -103,17 +103,17 @@ class MistyWhoDunnitRobot:
             # Connect to send socket (audio input)
             self.send_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.send_socket.connect((self.pipeline_server_ip, self.pipeline_port))
-            logger.info(f"✅ Connected send socket to {self.pipeline_server_ip}:{self.pipeline_port}")
+            logger.info(f"Connected send socket to {self.pipeline_server_ip}:{self.pipeline_port}")
 
             # Connect to receive socket (audio output)
             self.recv_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.recv_socket.connect((self.pipeline_server_ip, self.pipeline_port + 1))
-            logger.info(f"✅ Connected recv socket to {self.pipeline_server_ip}:{self.pipeline_port + 1}")
+            logger.info(f" Connected recv socket to {self.pipeline_server_ip}:{self.pipeline_port + 1}")
 
             self.connected = True
             return True
         except Exception as e:
-            logger.error(f"❌ Failed to connect to pipeline server: {e}")
+            logger.error(f" Failed to connect to pipeline server: {e}")
             self.connected = False
             return False
 
@@ -124,7 +124,7 @@ class MistyWhoDunnitRobot:
         if self.recv_socket:
             self.recv_socket.close()
         self.connected = False
-        logger.info("🔌 Disconnected from pipeline server")
+        logger.info(" Disconnected from pipeline server")
 
     def perform_expression(self, expression: str) -> float:
         """Perform robot expression and return execution time."""
@@ -158,7 +158,7 @@ class MistyWhoDunnitRobot:
 
         duration_ms = (time.time() - start_time) * 1000
         monitor.log_robot_action(expression, duration_ms)
-        logger.info(f"🤖 Performed expression '{expression}' in {duration_ms:.1f}ms")
+        logger.info(f" Performed expression '{expression}' in {duration_ms:.1f}ms")
         return duration_ms
 
     def start_audio_server(self):
@@ -169,7 +169,7 @@ class MistyWhoDunnitRobot:
                     super().__init__(*args, directory=str(self.audio_files_dir.parent), **kwargs)
 
             with socketserver.TCPServer(("", self.audio_server_port), AudioHandler) as httpd:
-                logger.info(f"🎵 Audio server started on port {self.audio_server_port}")
+                logger.info(f" Audio server started on port {self.audio_server_port}")
                 self.audio_server = httpd
                 httpd.serve_forever()
 
@@ -191,7 +191,7 @@ class MistyWhoDunnitRobot:
 
         # Play on Misty via HTTP
         audio_url = f"http://{self.get_local_ip()}:{self.audio_server_port}/{self.audio_files_dir.name}/{audio_filename}"
-        logger.info(f"🔊 Playing audio: {audio_url}")
+        logger.info(f" Playing audio: {audio_url}")
         self.robot.play_audio(audio_url, volume=self.volume)
 
         duration_ms = (time.time() - start_time) * 1000
@@ -209,32 +209,68 @@ class MistyWhoDunnitRobot:
 
     def start_audio_capture(self):
         """Start audio capture from Misty using AV streaming."""
-        # Enable AV streaming service
-        stat = self.robot.get_av_streaming_service_status()
-        if not stat.json().get("result", False):
-            self.robot.enable_av_streaming_service()
+        logger.info(" Starting audio capture process...")
 
-        time.sleep(0.1)
-        self.robot.stop_av_streaming()
-        time.sleep(0.1)
+        try:
+            # Enable AV streaming service
+            logger.info(" Enabling AV streaming service...")
+            stat = self.robot.get_av_streaming_service_enabled()
+            if not stat.json().get("result", False):
+                self.robot.enable_av_streaming_service()
 
-        # Start AV streaming
-        self.robot.start_av_streaming(url="rtspd:1936", width=1920, height=1080, frameRate=30)
-        time.sleep(0.5)
+            time.sleep(0.1)
+            self.robot.stop_av_streaming()
+            time.sleep(0.1)
 
-        self.av_streaming = True
+            # Start AV streaming
+            logger.info(" Starting AV streaming...")
+            self.robot.start_av_streaming(url="rtspd:1936", width=1920, height=1080, frameRate=30)
+            time.sleep(0.5)
 
-        # Start FFmpeg audio capture
-        rtsp_url = f"rtsp://{self.misty_ip}:1936/h264"
+            self.av_streaming = True
 
-        self.audio_process = (
-            ffmpeg
-            .input(rtsp_url, **{"rtsp_transport": "tcp"})
-            .output("pipe:", format="s16le", acodec="pcm_s16le", ac=1, ar=16000)
-            .run_async(pipe_stdout=True, pipe_stderr=True)
-        )
+            # Start FFmpeg audio capture
+            rtsp_url = f"rtsp://{self.misty_ip}:1936/h264"
+            logger.info(f" Connecting to RTSP stream: {rtsp_url}")
 
-        logger.info("🎤 Started audio capture from Misty")
+        except Exception as e:
+            logger.error(f" Error in AV streaming setup: {e}")
+            return
+
+        try:
+            # Create audio capture directory
+            audio_capture_dir = Path("./audio_capture")
+            audio_capture_dir.mkdir(exist_ok=True)
+
+            # Generate unique filename for this recording session
+            timestamp = int(time.time() * 1000)
+            self.current_audio_file = audio_capture_dir / f"misty_audio_{timestamp}.wav"
+
+            # Set up FFmpeg to capture audio to file (like the working script)
+            self.ffmpeg_input = ffmpeg.input(rtsp_url, **{"use_wallclock_as_timestamps": "1", "rtsp_transport": "tcp"})
+
+            # Start audio capture to file
+            self.audio_process = (
+                self.ffmpeg_input
+                .output(str(self.current_audio_file), format="wav", acodec="pcm_s16le", ac=1, ar=16000, t=10)  # 10 second max
+                .overwrite_output()
+                .run_async(pipe_stderr=True)
+            )
+
+            # Wait a moment and check if process started successfully
+            time.sleep(0.5)
+            if self.audio_process.poll() is not None:
+                # Process has already terminated
+                stderr_output = self.audio_process.stderr.read()
+                logger.error(f" FFmpeg failed to start: {stderr_output.decode()}")
+                self.audio_process = None
+                return
+
+            logger.info(f" Started audio capture to file: {self.current_audio_file}")
+
+        except Exception as e:
+            logger.error(f" Failed to start FFmpeg process: {e}")
+            self.audio_process = None
 
     def stop_audio_capture(self):
         """Stop audio capture from Misty."""
@@ -246,74 +282,200 @@ class MistyWhoDunnitRobot:
             self.robot.stop_av_streaming()
             self.av_streaming = False
 
-        logger.info("🛑 Stopped audio capture from Misty")
+        logger.info(" Stopped audio capture from Misty")
 
     def send_audio_to_pipeline(self):
-        """Send captured audio to pipeline server."""
+        """Send captured audio file to pipeline server."""
         if not self.audio_process or not self.send_socket:
+            logger.warning("Audio process or send socket not available")
             return
 
-        packet_size = 4096
         try:
-            while self.recording and self.audio_process:
-                # Read audio data from FFmpeg
-                audio_data = self.audio_process.stdout.read(packet_size)
-                if audio_data:
-                    # Send to pipeline
-                    self.send_socket.sendall(audio_data)
+            logger.info(" Waiting for audio capture to complete...")
+
+            # Wait for FFmpeg to finish capturing (up to recording duration)
+            while self.recording and self.audio_process.poll() is None:
+                time.sleep(0.1)
+
+            # Check if we have a captured audio file
+            if hasattr(self, 'current_audio_file') and self.current_audio_file.exists():
+                file_size = self.current_audio_file.stat().st_size
+                logger.info(f" Audio file captured: {self.current_audio_file} ({file_size} bytes)")
+
+                if file_size > 0:
+                    # Use wave library to read raw audio data (skip WAV headers)
+                    try:
+                        with wave.open(str(self.current_audio_file), 'rb') as wav_file:
+                            # Get audio parameters
+                            frames = wav_file.getnframes()
+                            sample_rate = wav_file.getframerate()
+                            channels = wav_file.getnchannels()
+
+                            logger.info(f" Audio info: {frames} frames, {sample_rate}Hz, {channels} channels")
+
+                            # Read raw audio data (without WAV headers)
+                            raw_audio_data = wav_file.readframes(frames)
+
+                        logger.info(f"Streaming {len(raw_audio_data)} bytes of raw audio to pipeline...")
+
+                        # Stream raw audio data to pipeline with timing (simulate real-time)
+                        chunk_size = 1024  # Match pipeline expectations
+                        sample_rate = 16000
+                        bytes_per_second = sample_rate * 2  # 16-bit = 2 bytes per sample
+                        chunk_duration = chunk_size / bytes_per_second  # Time per chunk in seconds
+
+                        bytes_sent = 0
+                        start_time = time.time()
+
+                        for i in range(0, len(raw_audio_data), chunk_size):
+                            chunk = raw_audio_data[i:i + chunk_size]
+                            self.send_socket.sendall(chunk)
+                            bytes_sent += len(chunk)
+
+                            # Simulate real-time streaming by adding appropriate delay
+                            elapsed = time.time() - start_time
+                            expected_time = (bytes_sent / bytes_per_second)
+                            if expected_time > elapsed:
+                                time.sleep(expected_time - elapsed)
+
+                        logger.info(f"Successfully streamed {bytes_sent} bytes of raw audio to pipeline")
+
+                    except wave.Error as e:
+                        logger.error(f" Error reading WAV file: {e}")
+                    except Exception as e:
+                        logger.error(f" Error processing audio file: {e}")
                 else:
-                    break
+                    logger.warning("  Audio file is empty - no audio captured")
+            else:
+                logger.warning("  No audio file found or capture failed")
+
         except Exception as e:
-            logger.error(f"Error sending audio to pipeline: {e}")
+            logger.error(f" Error sending audio file to pipeline: {e}")
+            # Log FFmpeg stderr for debugging
+            if self.audio_process and self.audio_process.stderr:
+                try:
+                    stderr_output = self.audio_process.stderr.read()
+                    if stderr_output:
+                        logger.error(f"FFmpeg stderr: {stderr_output.decode()}")
+                except:
+                    pass
 
     def receive_audio_from_pipeline(self):
         """Receive processed audio from pipeline server."""
         if not self.recv_socket:
+            logger.warning("No receive socket available")
             return
 
-        def receive_full_chunk(conn, chunk_size):
-            data = b""
-            while len(data) < chunk_size:
-                packet = conn.recv(chunk_size - len(data))
-                if not packet:
-                    return None
-                data += packet
-            return data
+        logger.info(" Waiting for audio response from pipeline...")
+
+        def receive_with_timeout(conn, chunk_size, timeout=5.0):
+            """Receive data with timeout."""
+            import select
+            ready = select.select([conn], [], [], timeout)
+            if ready[0]:
+                return conn.recv(chunk_size)
+            return None
 
         try:
             # Receive audio chunks from pipeline
             audio_chunks = []
-            while self.connected:
-                chunk_size = 2048  # Match pipeline chunk size
-                audio_data = receive_full_chunk(self.recv_socket, chunk_size)
+            total_timeout = 15.0  # 15 second max wait
+            start_time = time.time()
+
+            while self.connected and (time.time() - start_time) < total_timeout:
+                chunk_size = 1024
+                audio_data = receive_with_timeout(self.recv_socket, chunk_size, timeout=2.0)
+
                 if audio_data:
+                    if not audio_chunks:  # First chunk received
+                        logger.info(f" Receiving audio response from pipeline...")
+
                     audio_chunks.append(audio_data)
-                    # Check for end marker or timeout
-                    if len(audio_chunks) > 100:  # Prevent infinite accumulation
-                        break
+
+                    # Check if we have enough data (pipeline might send in bursts)
+                    total_bytes = sum(len(chunk) for chunk in audio_chunks)
+                    if total_bytes > 10000:  # If we have > 10KB, check if more is coming
+                        # Wait briefly for more data
+                        more_data = receive_with_timeout(self.recv_socket, chunk_size, timeout=0.5)
+                        if more_data:
+                            audio_chunks.append(more_data)
+                        else:
+                            break  # No more data coming
                 else:
-                    break
+                    if audio_chunks:
+                        break  # We have some data and no more is coming
+                    # No data yet, keep waiting
 
             if audio_chunks:
                 # Combine all chunks and play
                 complete_audio = b''.join(audio_chunks)
+                logger.info(f" Received {len(complete_audio)} bytes of response audio")
                 self.play_audio_response(complete_audio)
+            else:
+                logger.warning("  No audio response received from pipeline")
+                logger.info(" Falling back to generating local TTS response...")
+                self.generate_fallback_tts_response()
 
         except Exception as e:
-            logger.error(f"Error receiving audio from pipeline: {e}")
+            logger.error(f" Error receiving audio from pipeline: {e}")
+
+    def generate_fallback_tts_response(self):
+        """Generate a simple TTS response when pipeline doesn't respond."""
+        try:
+            # Simple fallback responses for testing
+            fallback_responses = [
+                "I heard you speaking. Can you tell me more about what you're looking for?",
+                "Interesting. What else can you tell me about this mystery?",
+                "I'm listening. Please continue with your investigation.",
+                "That's helpful information. What would you like to explore next?",
+                "I understand. Can you give me more details?"
+            ]
+
+            import random
+            response_text = random.choice(fallback_responses)
+
+            logger.info(f"  Generating fallback response: '{response_text}'")
+
+            # Create robot_speech_files directory
+            speech_dir = Path("./robot_speech_files")
+            speech_dir.mkdir(exist_ok=True)
+            speech_file = speech_dir / "fallback_speech.wav"
+
+            # Generate simple TTS (you could use pyttsx3, gTTS, or a simple beep)
+            # For now, let's create a simple audio file or use system TTS
+            try:
+                # Try using system say command (macOS/Linux)
+                import subprocess
+                subprocess.run([
+                    'say', response_text, '-o', str(speech_file), '--data-format=LEI16@16000'
+                ], check=True, capture_output=True)
+
+                # Play on Misty
+                audio_url = f"http://{self.get_local_ip()}:8000/robot_speech_files/fallback_speech.wav"
+                logger.info(f" Playing fallback audio: {audio_url}")
+                self.robot.play_audio(audio_url, volume=self.volume)
+
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                # Fallback to robot expression only
+                logger.info(" TTS not available, using robot expression instead")
+                self.perform_expression("question")
+                time.sleep(2)  # Give user time to see expression
+
+        except Exception as e:
+            logger.error(f" Error generating fallback response: {e}")
 
     def start_conversation(self):
         """Start a new conversation turn with latency monitoring."""
         self.current_conversation_id = int(time.time())
         monitor.start_conversation()
-        logger.info(f"🎯 Starting conversation {self.current_conversation_id}")
+        logger.info(f" Starting conversation {self.current_conversation_id}")
 
     def run_experiment_loop(self):
         """Main experiment loop for who-dunnit mystery solving."""
         if not self.connect_to_pipeline():
             return
 
-        logger.info("🕵️ Starting Who-Dunnit Mystery Experiment")
+        logger.info(" Starting Who-Dunnit Mystery Experiment")
 
         # Start audio server
         self.start_audio_server()
@@ -324,11 +486,11 @@ class MistyWhoDunnitRobot:
             self.perform_expression("hi")
 
             conversation_count = 0
-            max_conversations = 50  # Experiment limit
+            max_conversations = 5  # Experiment limit
 
             while conversation_count < max_conversations and self.connected:
                 try:
-                    logger.info(f"🔄 Starting conversation turn {conversation_count + 1}")
+                    logger.info(f" Starting conversation turn {conversation_count + 1}")
 
                     # Start listening - change LED to blue
                     self.robot.change_led(0, 199, 252)  # Blue for listening
@@ -366,10 +528,10 @@ class MistyWhoDunnitRobot:
                     time.sleep(2.0)  # Pause between turns
 
                 except KeyboardInterrupt:
-                    logger.info("🛑 Experiment interrupted by user")
+                    logger.info(" Experiment interrupted by user")
                     break
                 except Exception as e:
-                    logger.error(f"❌ Error in conversation loop: {e}")
+                    logger.error(f" Error in conversation loop: {e}")
                     time.sleep(2.0)  # Recovery pause
 
         finally:
@@ -386,7 +548,7 @@ class MistyWhoDunnitRobot:
             with open(f"misty_experiment_report_{timestamp}.json", 'w') as f:
                 json.dump(report, f, indent=2)
 
-            logger.info(f"📊 Experiment complete. Report saved to misty_experiment_report_{timestamp}.json")
+            logger.info(f" Experiment complete. Report saved to misty_experiment_report_{timestamp}.json")
 
 def main():
     """Run Misty integration."""
