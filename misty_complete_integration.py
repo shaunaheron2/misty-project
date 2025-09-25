@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Misty Robot Integration for Who-Dunnit Speech-to-Speech Pipeline
-Connects HuggingFace pipeline to Misty robot hardware.
+Complete Misty Robot Integration for Who-Dunnit Speech-to-Speech Pipeline
+Connects HuggingFace pipeline to Misty robot hardware with full audio processing.
 """
 
 import json
@@ -29,6 +29,7 @@ except ImportError:
 
 from latency_monitor import monitor
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Robot expressions matching who-dunnit prompt
@@ -52,13 +53,7 @@ ROBOT_EXPRESSIONS = {
 
 class MistyWhoDunnitRobot:
     """
-    Misty robot integration for who-dunnit mystery solving experiment.
-
-    Connects to remote speech-to-speech pipeline server and handles:
-    - Audio capture and playback
-    - Robot expressions based on JSON responses
-    - Latency monitoring for robot actions
-    - Network communication with pipeline server
+    Complete Misty robot integration for who-dunnit mystery solving experiment.
     """
 
     def __init__(self, misty_ip: str, pipeline_server_ip: str, pipeline_port: int = 12345):
@@ -92,7 +87,6 @@ class MistyWhoDunnitRobot:
 
         # FFmpeg processes for AV streaming
         self.audio_process = None
-        self.video_process = None
 
         # Initialize robot to default state
         self.reset_robot()
@@ -133,12 +127,7 @@ class MistyWhoDunnitRobot:
         logger.info("🔌 Disconnected from pipeline server")
 
     def perform_expression(self, expression: str) -> float:
-        """
-        Perform robot expression and return execution time.
-
-        Returns:
-            float: Time taken to execute expression in milliseconds
-        """
+        """Perform robot expression and return execution time."""
         start_time = time.time()
 
         if expression not in ROBOT_EXPRESSIONS:
@@ -168,42 +157,9 @@ class MistyWhoDunnitRobot:
                 time.sleep(0.4)  # Wait for movement to complete
 
         duration_ms = (time.time() - start_time) * 1000
-
-        # Log to latency monitor
         monitor.log_robot_action(expression, duration_ms)
-
         logger.info(f"🤖 Performed expression '{expression}' in {duration_ms:.1f}ms")
         return duration_ms
-
-    def parse_pipeline_response(self, response_text: str) -> tuple[str, Optional[str]]:
-        """
-        Parse JSON response from pipeline to extract message and expression.
-
-        Returns:
-            tuple: (message_text, expression_name)
-        """
-        try:
-            # Try to parse as JSON
-            if response_text.strip().startswith('{') and response_text.strip().endswith('}'):
-                data = json.loads(response_text)
-                message = data.get('msg', response_text)
-                expression = data.get('expression', None)
-
-                logger.info(f"📝 Parsed response - Message: '{message[:50]}...', Expression: {expression}")
-                return message, expression
-            else:
-                # Plain text response
-                return response_text, None
-
-        except json.JSONDecodeError:
-            logger.warning(f"Failed to parse JSON response: {response_text[:100]}...")
-            return response_text, None
-
-    def start_conversation(self):
-        """Start a new conversation turn with latency monitoring."""
-        self.current_conversation_id = int(time.time())
-        monitor.start_conversation()
-        logger.info(f"🎯 Starting conversation {self.current_conversation_id}")
 
     def start_audio_server(self):
         """Start HTTP server for serving audio files to Misty."""
@@ -222,12 +178,7 @@ class MistyWhoDunnitRobot:
         time.sleep(1)  # Give server time to start
 
     def play_audio_response(self, audio_data: bytes) -> float:
-        """
-        Play audio response on Misty and return playback time.
-
-        Returns:
-            float: Audio playback duration in milliseconds
-        """
+        """Play audio response on Misty and return playback time."""
         start_time = time.time()
 
         # Save audio to server directory
@@ -330,56 +281,101 @@ class MistyWhoDunnitRobot:
             return data
 
         try:
+            # Receive audio chunks from pipeline
+            audio_chunks = []
             while self.connected:
-                # Receive audio chunks from pipeline
                 chunk_size = 2048  # Match pipeline chunk size
                 audio_data = receive_full_chunk(self.recv_socket, chunk_size)
                 if audio_data:
-                    # Play audio response on Misty
-                    self.play_audio_response(audio_data)
-                    break  # One response per conversation turn
+                    audio_chunks.append(audio_data)
+                    # Check for end marker or timeout
+                    if len(audio_chunks) > 100:  # Prevent infinite accumulation
+                        break
+                else:
+                    break
+
+            if audio_chunks:
+                # Combine all chunks and play
+                complete_audio = b''.join(audio_chunks)
+                self.play_audio_response(complete_audio)
+
         except Exception as e:
             logger.error(f"Error receiving audio from pipeline: {e}")
 
-    def run_experiment_loop(self):
-        """
-        Main experiment loop for who-dunnit mystery solving.
+    def start_conversation(self):
+        """Start a new conversation turn with latency monitoring."""
+        self.current_conversation_id = int(time.time())
+        monitor.start_conversation()
+        logger.info(f"🎯 Starting conversation {self.current_conversation_id}")
 
-        Handles conversation flow with latency monitoring.
-        """
+    def run_experiment_loop(self):
+        """Main experiment loop for who-dunnit mystery solving."""
         if not self.connect_to_pipeline():
             return
 
         logger.info("🕵️ Starting Who-Dunnit Mystery Experiment")
+
+        # Start audio server
+        self.start_audio_server()
 
         try:
             # Initial greeting
             self.start_conversation()
             self.perform_expression("hi")
 
-            # Send initial prompt to pipeline
-            initial_prompt = "Start conversation"
-            # ... implement socket communication with pipeline
-
             conversation_count = 0
             max_conversations = 50  # Experiment limit
 
             while conversation_count < max_conversations and self.connected:
                 try:
-                    # Wait for user speech input
-                    # Process through pipeline
-                    # Handle response
-                    # Monitor latency
+                    logger.info(f"🔄 Starting conversation turn {conversation_count + 1}")
+
+                    # Start listening - change LED to blue
+                    self.robot.change_led(0, 199, 252)  # Blue for listening
+                    self.perform_expression("listen")
+
+                    # Start audio capture from Misty
+                    self.start_audio_capture()
+                    self.recording = True
+
+                    # Start threads for audio processing
+                    send_thread = threading.Thread(target=self.send_audio_to_pipeline, daemon=True)
+                    recv_thread = threading.Thread(target=self.receive_audio_from_pipeline, daemon=True)
+
+                    send_thread.start()
+                    recv_thread.start()
+
+                    # Listen for speech for up to 10 seconds
+                    listen_duration = 10.0
+                    start_time = time.time()
+
+                    while (time.time() - start_time) < listen_duration and self.recording:
+                        time.sleep(0.1)
+
+                    # Stop recording
+                    self.recording = False
+                    self.stop_audio_capture()
+
+                    # Wait for pipeline response
+                    recv_thread.join(timeout=10.0)
+
+                    # Reset to neutral state
+                    self.robot.change_led(100, 70, 160)  # Purple - neutral
 
                     conversation_count += 1
-                    time.sleep(0.1)  # Small delay to prevent tight loop
+                    time.sleep(2.0)  # Pause between turns
 
                 except KeyboardInterrupt:
+                    logger.info("🛑 Experiment interrupted by user")
                     break
                 except Exception as e:
-                    logger.error(f"Error in conversation loop: {e}")
+                    logger.error(f"❌ Error in conversation loop: {e}")
+                    time.sleep(2.0)  # Recovery pause
 
         finally:
+            # Cleanup
+            self.recording = False
+            self.stop_audio_capture()
             self.disconnect_from_pipeline()
             self.perform_expression("goodbye")
 
@@ -390,15 +386,15 @@ class MistyWhoDunnitRobot:
             with open(f"misty_experiment_report_{timestamp}.json", 'w') as f:
                 json.dump(report, f, indent=2)
 
-            logger.info(f" Experiment complete. Report saved to misty_experiment_report_{timestamp}.json")
+            logger.info(f"📊 Experiment complete. Report saved to misty_experiment_report_{timestamp}.json")
 
 def main():
-    """Test Misty integration."""
+    """Run Misty integration."""
     import sys
 
     if len(sys.argv) != 3:
-        print("Usage: python misty_integration.py <misty_ip> <pipeline_server_ip>")2
-        print("Example: python misty_integration.py 192.168.1.100 192.168.1.50")
+        print("Usage: python misty_complete_integration.py <misty_ip> <pipeline_server_ip>")
+        print("Example: python misty_complete_integration.py 192.168.1.100 192.168.1.50")
         sys.exit(1)
 
     misty_ip = sys.argv[1]
