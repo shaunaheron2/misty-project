@@ -33,10 +33,10 @@ else
 fi
 
 # Activate environment and start server
-echo "🔄 Activating Python 3.12 environment..."
+echo " Activating Python 3.12 environment..."
 source .venv-312/bin/activate
 
-echo "🚀 Starting pipeline server..."
+echo " Starting pipeline server..."
 echo "   This will take 2-3 minutes to load all models"
 echo "   Look for: 'Receiver waiting to be connected...'"
 echo ""
@@ -54,4 +54,4 @@ python s2s_pipeline.py \
     --log_level info
 
 echo ""
-echo "📊 Pipeline server stopped"
+echo "Pipeline server stopped"
